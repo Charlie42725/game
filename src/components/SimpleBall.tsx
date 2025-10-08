@@ -88,17 +88,23 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
     
     // 分離球和釘子
     const overlap = (12 + 3) - distance; // 使用實際釘子半徑3
-    ballState.x += nx * overlap * 0.6;
-    ballState.y += ny * overlap * 0.6;
+    ballState.x += nx * overlap * 0.8; // 增加分離力度
+    ballState.y += ny * overlap * 0.8;
     
-    // 計算反彈速度
+    // 計算反彈速度 - 降低彈性以減少劇烈彈跳
     const dotProduct = ballState.vx * nx + ballState.vy * ny;
-    ballState.vx -= 2 * dotProduct * nx * 0.8; // 0.8是彈性係數
-    ballState.vy -= 2 * dotProduct * ny * 0.8;
+    ballState.vx -= 2 * dotProduct * nx * 0.6; // 降低彈性係數到0.6
+    ballState.vy -= 2 * dotProduct * ny * 0.6;
     
-    // 添加一些隨機性
-    ballState.vx += (Math.random() - 0.5) * 2;
-    ballState.vy += (Math.random() - 0.5) * 1;
+    // 限制水平速度，防止球彈得太遠
+    const maxHorizontalSpeed = 4;
+    if (Math.abs(ballState.vx) > maxHorizontalSpeed) {
+      ballState.vx = ballState.vx > 0 ? maxHorizontalSpeed : -maxHorizontalSpeed;
+    }
+    
+    // 添加輕微隨機性，但不要太大
+    ballState.vx += (Math.random() - 0.5) * 1;
+    ballState.vy += (Math.random() - 0.5) * 0.5;
   };
 
   // 初始化球
@@ -133,15 +139,26 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
         const newPos = { ...prevPos };
         
         // 重力
-        newPos.vy += 15 * deltaTime; // 重力加速度
+        newPos.vy += 12 * deltaTime; // 降低重力，讓運動更平穩
         
         // 阻力
-        newPos.vx *= 0.999;
+        newPos.vx *= 0.998; // 增加阻力
         newPos.vy *= 0.999;
         
         // 更新位置
         newPos.x += newPos.vx;
         newPos.y += newPos.vy;
+        
+        // 確保球不會跑到遊戲區域外 (預防性檢查)
+        const gameAreaMargin = boardWidth * 0.05; // 5% 邊距
+        if (newPos.x < gameAreaMargin) {
+          newPos.x = gameAreaMargin;
+          newPos.vx = Math.abs(newPos.vx) * 0.7;
+        }
+        if (newPos.x > boardWidth - gameAreaMargin) {
+          newPos.x = boardWidth - gameAreaMargin;
+          newPos.vx = -Math.abs(newPos.vx) * 0.7;
+        }
         
         // 檢查與釘子的碰撞
         for (const peg of pegs) {
@@ -171,14 +188,55 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
           }
         }
         
-        // 邊界碰撞
-        if (newPos.x <= 12 || newPos.x >= boardWidth - 12) {
-          newPos.vx = -newPos.vx * 0.8;
-          newPos.x = Math.max(12, Math.min(boardWidth - 12, newPos.x));
+        // 三角形邊界檢測
+        const rowHeight = boardHeight / (rows + 1);
+        const colWidth = boardWidth / (rows + 1);
+        const currentRow = Math.floor(newPos.y / rowHeight);
+        
+        if (currentRow >= 1 && currentRow <= rows) {
+          // 計算當前行的左右邊界
+          const leftBoundary = colWidth * 0.5;
+          const rightBoundary = colWidth * (rows + 0.5);
+          
+          // 檢測左邊界碰撞
+          if (newPos.x <= leftBoundary + 12) {
+            newPos.vx = Math.abs(newPos.vx) * 0.8; // 向右反彈
+            newPos.x = leftBoundary + 12;
+          }
+          
+          // 檢測右邊界碰撞
+          if (newPos.x >= rightBoundary - 12) {
+            newPos.vx = -Math.abs(newPos.vx) * 0.8; // 向左反彈
+            newPos.x = rightBoundary - 12;
+          }
+        } else {
+          // 在三角形範圍外，強制邊界檢測
+          if (newPos.x <= 12) {
+            newPos.vx = Math.abs(newPos.vx) * 0.8;
+            newPos.x = 12;
+          }
+          if (newPos.x >= boardWidth - 12) {
+            newPos.vx = -Math.abs(newPos.vx) * 0.8;
+            newPos.x = boardWidth - 12;
+          }
+        }
+        
+        // 最終安全檢查 - 強制保持在合理範圍內
+        const safeMargin = 30;
+        if (newPos.x < safeMargin) {
+          newPos.x = safeMargin;
+          newPos.vx = Math.abs(newPos.vx);
+        }
+        if (newPos.x > boardWidth - safeMargin) {
+          newPos.x = boardWidth - safeMargin;
+          newPos.vx = -Math.abs(newPos.vx);
         }
         
         // 檢查是否到達底部
         if (newPos.y >= boardHeight - 12) {
+          // 確保最終位置在有效範圍內
+          newPos.x = Math.max(safeMargin, Math.min(boardWidth - safeMargin, newPos.x));
+          
           const finalSlot = Math.floor((newPos.x / boardWidth) * (rows + 1));
           const clampedSlot = Math.max(0, Math.min(rows, finalSlot));
           
