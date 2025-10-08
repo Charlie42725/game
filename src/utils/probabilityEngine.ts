@@ -55,71 +55,114 @@ export function calculateFinalSlot(rows: number): number {
 }
 
 /**
- * 根據最終槽位生成球的路徑（完全確定性）
+ * 根據最終槽位生成球的路徑（帶物理碰撞但結果確定）
  * @param rows 行數
  * @param finalSlot 最終槽位索引
  * @returns 球的路徑數組
  */
 export function generatePathToSlot(rows: number, finalSlot: number): number[] {
-  console.log(`[DEBUG] Generating DETERMINISTIC path for ${rows} rows to slot ${finalSlot}`);
+  console.log(`[DEBUG] Generating PHYSICS path for ${rows} rows to slot ${finalSlot}`);
   
   const path: number[] = [];
   let currentPosition = rows / 2; // 從中央開始
   
   path.push(currentPosition);
   
-  // 計算需要到達的最終位置
   const targetPosition = finalSlot;
   
-  console.log(`[DEBUG] Starting position: ${currentPosition}, target: ${targetPosition}`);
+  // 預先計算需要的總偏移
+  const totalOffset = targetPosition - currentPosition;
+  console.log(`[DEBUG] Total offset needed: ${totalOffset} (from ${currentPosition} to ${targetPosition})`);
   
-  // 完全確定性的路徑生成 - 每一步都朝向目標
+  // 決定每一步的方向，確保總和等於目標偏移
+  const directions: number[] = [];
+  let accumulatedOffset = 0;
+  
+  // 為每一行生成碰撞方向，但確保最終到達目標
   for (let row = 1; row <= rows; row++) {
     const remainingRows = rows - row;
-    const currentDiff = targetPosition - currentPosition;
+    const remainingOffset = totalOffset - accumulatedOffset;
+    
+    let direction: number;
     
     if (remainingRows === 0) {
-      // 最後一行，確保到達目標位置
-      currentPosition = targetPosition;
+      // 最後一行，使用剩餘的偏移
+      direction = remainingOffset;
     } else {
-      // 計算理想的移動步長
-      const idealStep = currentDiff / remainingRows;
+      // 計算理想步長
+      const idealStep = remainingOffset / (remainingRows + 1);
       
-      // 每次移動0.5或-0.5，選擇最接近理想步長的方向
-      if (idealStep > 0.25) {
-        // 需要向右移動
-        currentPosition += 0.5;
-      } else if (idealStep < -0.25) {
-        // 需要向左移動
-        currentPosition -= 0.5;
+      // 添加一些隨機性來模擬碰撞，但偏向理想方向
+      const randomFactor = (Math.random() - 0.5) * 0.6; // -0.3 到 0.3 的隨機值
+      const biasedDirection = idealStep + randomFactor;
+      
+      // 限制每步只能是 ±0.5
+      if (biasedDirection > 0.25) {
+        direction = 0.5;
+      } else if (biasedDirection < -0.25) {
+        direction = -0.5;
       } else {
-        // 接近目標，根據精確差值微調
-        if (currentDiff > 0) {
-          currentPosition += 0.5;
-        } else if (currentDiff < 0) {
-          currentPosition -= 0.5;
+        // 當接近目標時，根據剩餘偏移決定
+        if (remainingOffset > 0.25) {
+          direction = 0.5;
+        } else if (remainingOffset < -0.25) {
+          direction = -0.5;
+        } else {
+          // 微小偏移或已到達，可以隨機碰撞
+          direction = Math.random() < 0.5 ? -0.5 : 0.5;
+          
+          // 但如果這會讓我們偏離太遠，就修正方向
+          const futureOffset = accumulatedOffset + direction;
+          const futureRemaining = totalOffset - futureOffset;
+          if (Math.abs(futureRemaining) > remainingRows * 0.5) {
+            direction = -direction; // 反向
+          }
         }
-        // 如果currentDiff == 0，保持當前位置
       }
     }
+    
+    directions.push(direction);
+    accumulatedOffset += direction;
+    
+    console.log(`[DEBUG] Row ${row}: direction=${direction}, accumulated=${accumulatedOffset}, remaining=${totalOffset - accumulatedOffset}`);
+  }
+  
+  // 修正最後幾步，確保精確到達目標
+  const finalOffset = accumulatedOffset;
+  const offsetError = totalOffset - finalOffset;
+  
+  if (Math.abs(offsetError) > 0.01 && directions.length > 0) {
+    console.log(`[DEBUG] Correcting offset error: ${offsetError}`);
+    // 將誤差分配到最後幾步
+    const stepsToCorrect = Math.min(3, directions.length);
+    const correctionPerStep = offsetError / stepsToCorrect;
+    
+    for (let i = 0; i < stepsToCorrect; i++) {
+      const stepIndex = directions.length - 1 - i;
+      directions[stepIndex] += correctionPerStep;
+    }
+  }
+  
+  // 根據方向數組生成最終路徑
+  currentPosition = rows / 2; // 重置起始位置
+  
+  for (let i = 0; i < directions.length; i++) {
+    currentPosition += directions[i];
     
     // 確保不超出邊界
     currentPosition = Math.max(0, Math.min(rows, currentPosition));
     
     path.push(currentPosition);
-    
-    console.log(`[DEBUG] Row ${row}: position=${currentPosition}, diff=${targetPosition - currentPosition}, remaining=${remainingRows}`);
   }
   
-  // 最終確認：如果最後位置不是目標槽位，強制設定
-  const finalPosition = path[path.length - 1];
-  if (Math.abs(finalPosition - targetPosition) > 0.1) {
-    console.log(`[DEBUG] Force correcting final position from ${finalPosition} to ${targetPosition}`);
+  // 強制最終位置為目標（以防邊界限制影響）
+  if (Math.abs(path[path.length - 1] - targetPosition) > 0.1) {
+    console.log(`[DEBUG] Force final correction: ${path[path.length - 1]} -> ${targetPosition}`);
     path[path.length - 1] = targetPosition;
   }
   
-  console.log(`[DEBUG] Generated DETERMINISTIC path:`, path);
-  console.log(`[DEBUG] Final position: ${path[path.length - 1]}, expected slot: ${targetPosition}`);
+  console.log(`[DEBUG] Generated PHYSICS path:`, path);
+  console.log(`[DEBUG] Final position: ${path[path.length - 1]}, target: ${targetPosition}`);
   
   return path;
 }
