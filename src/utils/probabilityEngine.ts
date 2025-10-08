@@ -25,6 +25,8 @@ function getCustomMultipliers(rows: number, risk: RiskLevel): number[] | null {
 export function calculateFinalSlot(rows: number): number {
   const probabilities = DROP_PROBABILITIES[rows];
   
+  console.log(`[DEBUG] Calculating slot for ${rows} rows, probabilities:`, probabilities);
+  
   if (!probabilities) {
     // 如果沒有預定義的機率，使用隨機分佈
     const slots = rows + 1;
@@ -35,24 +37,32 @@ export function calculateFinalSlot(rows: number): number {
   const random = Math.random() * 100; // 0-100
   let cumulative = 0;
   
+  console.log(`[DEBUG] Random value: ${random}`);
+  
   for (let i = 0; i < probabilities.length; i++) {
     cumulative += probabilities[i];
+    console.log(`[DEBUG] Slot ${i}: probability=${probabilities[i]}, cumulative=${cumulative}`);
     if (random <= cumulative) {
+      console.log(`[DEBUG] Selected slot: ${i}`);
       return i;
     }
   }
   
   // 回退到最後一個槽位
-  return probabilities.length - 1;
+  const fallbackSlot = probabilities.length - 1;
+  console.log(`[DEBUG] Fallback to slot: ${fallbackSlot}`);
+  return fallbackSlot;
 }
 
 /**
- * 根據最終槽位生成球的路徑
+ * 根據最終槽位生成球的路徑（完全確定性）
  * @param rows 行數
  * @param finalSlot 最終槽位索引
  * @returns 球的路徑數組
  */
 export function generatePathToSlot(rows: number, finalSlot: number): number[] {
+  console.log(`[DEBUG] Generating DETERMINISTIC path for ${rows} rows to slot ${finalSlot}`);
+  
   const path: number[] = [];
   let currentPosition = rows / 2; // 從中央開始
   
@@ -61,42 +71,55 @@ export function generatePathToSlot(rows: number, finalSlot: number): number[] {
   // 計算需要到達的最終位置
   const targetPosition = finalSlot;
   
-  // 生成路徑，逐步向目標位置移動
+  console.log(`[DEBUG] Starting position: ${currentPosition}, target: ${targetPosition}`);
+  
+  // 完全確定性的路徑生成 - 每一步都朝向目標
   for (let row = 1; row <= rows; row++) {
     const remainingRows = rows - row;
     const currentDiff = targetPosition - currentPosition;
     
-    // 如果已經接近目標或沒有剩餘行數，隨機移動
     if (remainingRows === 0) {
-      path.push(currentPosition);
-      continue;
-    }
-    
-    // 計算需要的平均移動方向
-    const averageMove = currentDiff / remainingRows;
-    
-    // 基於平均移動方向和隨機性決定下一步
-    let direction: number;
-    
-    if (Math.abs(averageMove) > 0.4) {
-      // 如果需要大幅移動，偏向目標方向
-      direction = averageMove > 0 ? 0.5 : -0.5;
-      // 添加一些隨機性
-      if (Math.random() < 0.2) {
-        direction *= -1;
-      }
+      // 最後一行，確保到達目標位置
+      currentPosition = targetPosition;
     } else {
-      // 隨機移動
-      direction = Math.random() < 0.5 ? -0.5 : 0.5;
+      // 計算理想的移動步長
+      const idealStep = currentDiff / remainingRows;
+      
+      // 每次移動0.5或-0.5，選擇最接近理想步長的方向
+      if (idealStep > 0.25) {
+        // 需要向右移動
+        currentPosition += 0.5;
+      } else if (idealStep < -0.25) {
+        // 需要向左移動
+        currentPosition -= 0.5;
+      } else {
+        // 接近目標，根據精確差值微調
+        if (currentDiff > 0) {
+          currentPosition += 0.5;
+        } else if (currentDiff < 0) {
+          currentPosition -= 0.5;
+        }
+        // 如果currentDiff == 0，保持當前位置
+      }
     }
-    
-    currentPosition += direction;
     
     // 確保不超出邊界
     currentPosition = Math.max(0, Math.min(rows, currentPosition));
     
     path.push(currentPosition);
+    
+    console.log(`[DEBUG] Row ${row}: position=${currentPosition}, diff=${targetPosition - currentPosition}, remaining=${remainingRows}`);
   }
+  
+  // 最終確認：如果最後位置不是目標槽位，強制設定
+  const finalPosition = path[path.length - 1];
+  if (Math.abs(finalPosition - targetPosition) > 0.1) {
+    console.log(`[DEBUG] Force correcting final position from ${finalPosition} to ${targetPosition}`);
+    path[path.length - 1] = targetPosition;
+  }
+  
+  console.log(`[DEBUG] Generated DETERMINISTIC path:`, path);
+  console.log(`[DEBUG] Final position: ${path[path.length - 1]}, expected slot: ${targetPosition}`);
   
   return path;
 }

@@ -109,7 +109,7 @@ export default function AdminPage() {
         {/* 標題區 */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">🎯 倍率管理後台</h1>
-          <p className="text-gray-300">調整遊戲倍率配置</p>
+          <p className="text-gray-300">調整遊戲獲勝倍率配置</p>
         </div>
 
         {/* 控制面板 */}
@@ -158,12 +158,12 @@ export default function AdminPage() {
           {/* 批量設定 */}
           <div className="mb-4">
             <label className="block text-white mb-2 font-semibold">
-              批量設定倍率（用逗號分隔，需要 {selectedRows + 1} 個值）：
+              批量設定獲勝倍率（用逗號分隔，需要 {selectedRows + 1} 個值）：
             </label>
             <div className="flex gap-2">
               <input 
                 type="text" 
-                placeholder="例：0.2,0.4,0.8,1.5,2,5,10,5,2,1.5,0.8,0.4,0.2"
+                placeholder="例：0.2,0.4,0.8,1.5,2,5,10,5,2,1.5,0.8,0.4,0.2 (球落在該槽位時的獲勝倍率)"
                 className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
                 onKeyPress={(e) => {
                   if (e.key === 'Enter') {
@@ -189,7 +189,7 @@ export default function AdminPage() {
         {/* 倍率編輯區 */}
         <div className="glass-effect rounded-xl p-6">
           <h2 className="text-2xl font-bold text-white mb-4">
-            {selectedRisk === 'low' ? '低風險' : selectedRisk === 'medium' ? '中風險' : '高風險'} - {selectedRows} 行
+            {selectedRisk === 'low' ? '低風險' : selectedRisk === 'medium' ? '中風險' : '高風險'} - {selectedRows} 行 獲勝倍率設定
           </h2>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -215,7 +215,10 @@ export default function AdminPage() {
 
           {/* 視覺化預覽 */}
           <div className="mt-6">
-            <h3 className="text-xl font-bold text-white mb-3">倍率分佈預覽</h3>
+            <h3 className="text-xl font-bold text-white mb-3">獲勝倍率分佈預覽</h3>
+            <p className="text-gray-300 text-sm mb-3">
+              球落在不同槽位時的獲勝倍率 (投注金額 × 倍率 = 獲得金額)
+            </p>
             <div className="flex justify-center">
               <div className="flex gap-1">
                 {multipliers[selectedRisk]?.[selectedRows]?.map((multiplier, index) => (
@@ -228,6 +231,7 @@ export default function AdminPage() {
                         multiplier >= 2 ? 'bg-yellow-500 text-black' : 
                         multiplier >= 1 ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'}
                     `}
+                    title={`槽位 ${index}: 投注 1 BTC 獲得 ${multiplier} BTC`}
                   >
                     {multiplier}x
                   </div>

@@ -40,7 +40,7 @@ const initialState: GameContextState = {
   gameState: 'idle',
   config: {
     bet: 0.00000001,
-    rows: 6,  // 改為6排來測試新的機率系統
+    rows: 8,  // 改為8排來測試機率系統
     risk: 'low',  // 改為簡單難度
     autoBetConfig: null
   },

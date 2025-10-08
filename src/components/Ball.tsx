@@ -230,9 +230,12 @@ export function BallManager({
   const handleAnimationEnd = (ballId: string) => {
     const ball = balls.find(b => b.id === ballId);
     if (ball) {
-      // 计算最终槽位
+      // 计算最终槽位 - 使用更精確的四捨五入
       const finalPosition = ball.path[ball.path.length - 1];
-      const slotIndex = Math.floor(finalPosition);
+      const slotIndex = Math.round(finalPosition);
+      
+      console.log(`[DEBUG] Ball ${ballId} landed at position ${finalPosition}, calculated slot: ${slotIndex}`);
+      
       onBallLanded(ballId, slotIndex);
     }
   };

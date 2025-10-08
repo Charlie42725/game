@@ -46,7 +46,7 @@ export default function ControlPanel({
   };
 
   const betOptions = [0.00000001, 0.00000002, 0.00000005, 0.0000001, 0.0000002, 0.0000005, 0.000001];
-  const rowOptions = [6, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+  const rowOptions = [8, 9, 10, 11, 12, 13, 14, 15, 16];
 
   const riskLevels: { key: RiskLevel; label: string; color: string }[] = [
     { key: 'low', label: '簡單', color: 'from-green-500 to-emerald-500' },
