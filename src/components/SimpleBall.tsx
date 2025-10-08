@@ -35,18 +35,27 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
 }) => {
   const [ballPos, setBallPos] = useState<SimpleBallState | null>(null);
   const [pegs] = useState<Peg[]>(() => {
-    // 生成釘子位置
+    // 使用與遊戲板相同的釘子位置計算
     const pegArray: Peg[] = [];
-    const rowSpacing = boardHeight / (rows + 2);
+    const rowHeight = boardHeight / (rows + 1);
+    const colWidth = boardWidth / (rows + 1);
     
-    for (let row = 1; row <= rows; row++) {
+    // 生成每行的釘子 (與 ballPhysics.ts 中的 getPegPositions 相同)
+    for (let row = 1; row < rows; row++) {
+      // 每行的钉子数量递增
       const pegsInRow = row + 1;
-      const pegSpacing = boardWidth / (pegsInRow + 1);
       
       for (let col = 0; col < pegsInRow; col++) {
+        // 计算钉子在该行的居中位置
+        const startOffset = (rows + 1 - pegsInRow) / 2;
+        const pegCol = startOffset + col;
+        
+        const x = pegCol * colWidth + colWidth / 2;
+        const y = row * rowHeight + rowHeight / 2;
+        
         pegArray.push({
-          x: pegSpacing * (col + 1),
-          y: rowSpacing * (row + 1),
+          x,
+          y,
           radius: 8
         });
       }
@@ -62,7 +71,7 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
     const dx = ball.x - peg.x;
     const dy = ball.y - peg.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance <= (12 + peg.radius); // 球半徑12 + 釘子半徑
+    return distance <= (12 + 3); // 球半徑12 + 釘子實際半徑3 (與遊戲板一致)
   };
 
   // 處理碰撞
@@ -78,7 +87,7 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
     const ny = dy / distance;
     
     // 分離球和釘子
-    const overlap = (12 + peg.radius) - distance;
+    const overlap = (12 + 3) - distance; // 使用實際釘子半徑3
     ballState.x += nx * overlap * 0.6;
     ballState.y += ny * overlap * 0.6;
     
@@ -237,12 +246,12 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
           {pegs.map((peg, index) => (
             <div
               key={index}
-              className="absolute bg-gray-600 rounded-full shadow-md"
+              className="absolute bg-white rounded-full shadow-md border border-gray-300"
               style={{
-                left: peg.x - peg.radius,
-                top: peg.y - peg.radius,
-                width: peg.radius * 2,
-                height: peg.radius * 2,
+                left: peg.x - 3, // 使用實際釘子半徑3
+                top: peg.y - 3,
+                width: 6, // 直徑6
+                height: 6,
               }}
             />
           ))}
