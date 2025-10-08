@@ -8,6 +8,7 @@ interface SimpleBallProps {
   boardWidth: number;
   boardHeight: number;
   rows: number;
+  targetSlot?: number; // 新增目標槽位
   onAnimationEnd?: (finalSlot: number) => void;
 }
 
@@ -31,6 +32,7 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
   boardWidth,
   boardHeight,
   rows,
+  targetSlot,
   onAnimationEnd
 }) => {
   const [ballPos, setBallPos] = useState<SimpleBallState | null>(null);
@@ -111,6 +113,8 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
   useEffect(() => {
     if (!ball.isActive) return;
     
+    console.log(`[Physics] Initializing ball ${ball.id} with target slot: ${targetSlot}`);
+    
     setBallPos({
       x: boardWidth / 2,
       y: 20,
@@ -119,7 +123,7 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
     });
     
     lastTimeRef.current = null;
-  }, [ball.isActive, ball.id, boardWidth]);
+  }, [ball.isActive, ball.id, boardWidth, targetSlot]);
 
   // 物理更新循環
   useEffect(() => {
@@ -140,6 +144,43 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
         
         // 重力
         newPos.vy += 12 * deltaTime; // 降低重力，讓運動更平穩
+        
+        // 強力機率引導 - 確保完全遵循後台數據
+        if (targetSlot !== undefined) {
+          const slotWidth = boardWidth / (rows + 1);
+          const targetX = slotWidth * (targetSlot + 0.5);
+          const distanceToTarget = targetX - newPos.x;
+          
+          // 計算引導力強度 - 三段式增強
+          const progressToBottom = Math.min(1, newPos.y / (boardHeight * 0.9));
+          let guidanceMultiplier = 0;
+          
+          if (progressToBottom > 0.7) {
+            // 底部30%：極強引導，確保到達目標
+            guidanceMultiplier = 8 + (progressToBottom - 0.7) * 20; // 8-14倍強度
+          } else if (progressToBottom > 0.4) {
+            // 中部30%：中等引導
+            guidanceMultiplier = 2 + (progressToBottom - 0.4) * 20; // 2-8倍強度
+          } else {
+            // 頂部40%：輕微引導，保持物理真實感
+            guidanceMultiplier = progressToBottom * 5; // 0-2倍強度
+          }
+          
+          // 應用引導力 - 距離越遠力度越強
+          const distanceRatio = Math.min(1, Math.abs(distanceToTarget) / (slotWidth * 0.5));
+          const guidanceForce = Math.sign(distanceToTarget) * guidanceMultiplier * distanceRatio * 0.5;
+          newPos.vx += guidanceForce;
+          
+          // 底部區域額外限制速度發散
+          if (progressToBottom > 0.8) {
+            newPos.vx *= 0.7; // 減少水平速度以提高精確性
+          }
+          
+          // 調試信息
+          if (Math.random() < 0.02) { // 2%機率打印調試信息
+            console.log(`[Physics] 🎯 Target: ${targetSlot}, X: ${newPos.x.toFixed(1)}→${targetX.toFixed(1)}, Dist: ${distanceToTarget.toFixed(1)}, Progress: ${(progressToBottom*100).toFixed(1)}%, Force: ${guidanceForce.toFixed(2)}`);
+          }
+        }
         
         // 阻力
         newPos.vx *= 0.998; // 增加阻力
@@ -234,14 +275,23 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
         
         // 檢查是否到達底部
         if (newPos.y >= boardHeight - 12) {
-          // 確保最終位置在有效範圍內
-          newPos.x = Math.max(safeMargin, Math.min(boardWidth - safeMargin, newPos.x));
+          // 🎯 關鍵修復：完全遵循後台機率數據
+          let finalSlot: number;
           
-          const finalSlot = Math.floor((newPos.x / boardWidth) * (rows + 1));
-          const clampedSlot = Math.max(0, Math.min(rows, finalSlot));
+          if (targetSlot !== undefined) {
+            // 使用後台計算的目標槽位（完全遵循機率數據）
+            finalSlot = targetSlot;
+            console.log(`🎯 [Physics End] Using backend target slot: ${finalSlot}`);
+          } else {
+            // 後備方案：基於物理位置計算
+            newPos.x = Math.max(safeMargin, Math.min(boardWidth - safeMargin, newPos.x));
+            finalSlot = Math.floor((newPos.x / boardWidth) * (rows + 1));
+            finalSlot = Math.max(0, Math.min(rows, finalSlot));
+            console.log(`⚠️ [Physics End] No target, using physics position: ${finalSlot}`);
+          }
           
           setTimeout(() => {
-            onAnimationEnd?.(clampedSlot);
+            onAnimationEnd?.(finalSlot);
           }, 100);
           
           return newPos; // 停止動畫
