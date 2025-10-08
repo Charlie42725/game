@@ -18,7 +18,7 @@ function getCustomMultipliers(rows: number, risk: RiskLevel): number[] | null {
 }
 
 // 從localStorage獲取自定義機率的函數
-function getCustomProbabilities(rows: number): number[] | null {
+export function getCustomProbabilities(rows: number): number[] | null {
   if (typeof window === 'undefined') return null;
   
   try {

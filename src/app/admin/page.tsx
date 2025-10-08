@@ -1,50 +1,55 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-
-// 預設機率配置（從遊戲類型文件複製）
-const DEFAULT_PROBABILITIES: Record<number, number[]> = {
-  8: [0.39, 3.13, 10.94, 21.88, 27.34, 21.88, 10.94, 3.13, 0.39],
-  9: [0.195, 1.758, 7.031, 16.406, 24.609, 24.609, 16.406, 7.031, 1.758, 0.195],
-  10: [0.098, 0.977, 4.395, 11.719, 20.508, 24.609, 20.508, 11.719, 4.395, 0.977, 0.098],
-  11: [0.049, 0.537, 2.686, 8.057, 16.113, 22.559, 22.559, 16.113, 8.057, 2.686, 0.537, 0.049],
-  12: [0.024, 0.293, 1.613, 5.371, 12.085, 19.336, 22.559, 19.336, 12.085, 5.371, 1.613, 0.293, 0.024],
-  13: [0.012, 0.159, 0.952, 3.491, 8.728, 15.710, 20.947, 20.947, 15.710, 8.728, 3.491, 0.952, 0.159, 0.012],
-  14: [0.006, 0.085, 0.555, 2.222, 6.110, 12.219, 18.329, 20.947, 18.329, 12.219, 6.110, 2.222, 0.555, 0.085, 0.006],
-  15: [0.003, 0.046, 0.320, 1.389, 4.166, 9.164, 15.274, 19.638, 19.638, 15.274, 9.164, 4.166, 1.389, 0.320, 0.046, 0.003],
-  16: [1.563, 9.375, 23.438, 31.25, 23.438, 9.375, 1.563]
-};
+import { DROP_PROBABILITIES } from '@/types/game';
+import { getCustomProbabilities } from '@/utils/probabilityEngine';
 
 export default function AdminPage() {
-  const [probabilities, setProbabilities] = useState<Record<number, number[]>>(DEFAULT_PROBABILITIES);
+  const [probabilities, setProbabilities] = useState<Record<number, number[]>>(DROP_PROBABILITIES);
   const [selectedRows, setSelectedRows] = useState<number>(12);
   const [isLoading, setIsLoading] = useState(true);
+  const [usingCustomProbabilities, setUsingCustomProbabilities] = useState(false);
 
-  // 載入保存的配置
+  // 載入實際使用的機率配置（優先自定義，回退到預設）
   useEffect(() => {
-    const saved = localStorage.getItem('customProbabilities');
-    if (saved) {
-      try {
-        setProbabilities(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to load probabilities:', e);
-      }
-    }
+    const loadCurrentProbabilities = () => {
+      const currentProbs: Record<number, number[]> = {};
+      let hasCustom = false;
+      
+      // 為每個行數載入實際使用的機率
+      Object.keys(DROP_PROBABILITIES).forEach(rowsStr => {
+        const rows = parseInt(rowsStr);
+        const customProbs = getCustomProbabilities(rows);
+        if (customProbs) {
+          hasCustom = true;
+          currentProbs[rows] = customProbs;
+        } else {
+          currentProbs[rows] = DROP_PROBABILITIES[rows];
+        }
+      });
+      
+      setProbabilities(currentProbs);
+      setUsingCustomProbabilities(hasCustom);
+    };
+
+    loadCurrentProbabilities();
     setIsLoading(false);
   }, []);
 
   // 保存配置
   const saveProbabilities = () => {
     localStorage.setItem('customProbabilities', JSON.stringify(probabilities));
-    alert('機率配置已保存！');
+    setUsingCustomProbabilities(true);
+    alert('✅ 機率配置已保存並同步到遊戲邏輯！\n\n📋 重要提醒：\n• 新機率將立即應用於下次掉球\n• 如果遊戲頁面已開啟，建議刷新頁面確保使用最新配置\n• 機率修改僅影響球的落點分佈，倍率保持不變');
   };
 
   // 重設為預設值
   const resetToDefaults = () => {
-    if (confirm('確定要重設為預設機率嗎？')) {
-      setProbabilities(DEFAULT_PROBABILITIES);
+    if (confirm('確定要重設為預設機率嗎？\n這將清除所有自定義機率設定。')) {
+      setProbabilities(DROP_PROBABILITIES);
       localStorage.removeItem('customProbabilities');
-      alert('已重設為預設機率！');
+      setUsingCustomProbabilities(false);
+      alert('✅ 已重設為預設機率！\n遊戲邏輯已同步使用原始機率分佈。');
     }
   };
 
@@ -83,9 +88,9 @@ export default function AdminPage() {
         ...prev,
         [rows]: values
       }));
-      alert('批量設定完成！');
+      alert('✅ 批量設定完成！\n請記得點擊【💾 保存配置】按鈕來應用更改。');
     } catch (error) {
-      alert('輸入格式錯誤，請使用逗號分隔的數字');
+      alert('❌ 輸入格式錯誤！\n請使用逗號分隔的數字，例如：5,10,15,20,25,15,5,3,2');
     }
   };
 
@@ -119,9 +124,22 @@ export default function AdminPage() {
           <h1 className="text-5xl font-bold bg-gradient-to-r from-white via-sakura-200 to-gold-300 bg-clip-text text-transparent mb-4 drop-shadow-lg">
             🎰 機率管理後台
           </h1>
-          <p className="text-xl text-gray-200 font-medium mb-2">調整球落入各槽位的機率分佈</p>
-          <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-yellow-600/80 to-amber-600/80 rounded-full border border-yellow-400/50 shadow-lg">
-            <span className="text-yellow-100 text-sm font-semibold">💡 注意：倍率固定不變，只調整機率</span>
+          <p className="text-xl text-gray-200 font-medium mb-3">調整球落入各槽位的機率分佈</p>
+          
+          {/* 狀態指示器 */}
+          <div className="flex justify-center gap-4 mb-4">
+            <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-yellow-600/80 to-amber-600/80 rounded-full border border-yellow-400/50 shadow-lg">
+              <span className="text-yellow-100 text-sm font-semibold">💡 注意：倍率固定不變，只調整機率</span>
+            </div>
+            <div className={`inline-flex items-center px-4 py-2 rounded-full border shadow-lg ${
+              usingCustomProbabilities
+                ? 'bg-gradient-to-r from-emerald-600/80 to-teal-600/80 border-emerald-400/50'
+                : 'bg-gradient-to-r from-blue-600/80 to-indigo-600/80 border-blue-400/50'
+            }`}>
+              <span className="text-white text-sm font-semibold">
+                {usingCustomProbabilities ? '🎯 使用自定義機率' : '📋 使用預設機率'}
+              </span>
+            </div>
           </div>
         </div>
 
