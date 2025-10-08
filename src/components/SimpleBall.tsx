@@ -95,8 +95,8 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
     
     // 計算基本反彈速度
     const dotProduct = ballState.vx * nx + ballState.vy * ny;
-    ballState.vx -= 2 * dotProduct * nx * 0.7; // 稍微提高彈性
-    ballState.vy -= 2 * dotProduct * ny * 0.7;
+    ballState.vx -= 2 * dotProduct * nx * 0.8; // 🚀 提高彈性，減少速度損失
+    ballState.vy -= 2 * dotProduct * ny * 0.8;
     
     // 🎯 機率影響的微妙偏向 - 讓碰撞有輕微的方向性偏好
     if (targetSlot !== undefined) {
@@ -107,20 +107,20 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
       
       // 只在中後期有輕微影響，且影響很小
       if (progressToBottom > 0.4 && Math.abs(distanceToTarget) > 30) {
-        const bias = Math.sign(distanceToTarget) * 0.3 * progressToBottom;
+        const bias = Math.sign(distanceToTarget) * 0.5 * progressToBottom;
         ballState.vx += bias;
       }
     }
     
-    // 限制速度
-    const maxHorizontalSpeed = 5;
+    // 🚀🚀 提高速度限制，讓球可以更快移動
+    const maxHorizontalSpeed = 12;
     if (Math.abs(ballState.vx) > maxHorizontalSpeed) {
       ballState.vx = ballState.vx > 0 ? maxHorizontalSpeed : -maxHorizontalSpeed;
     }
     
-    // 自然隨機性
-    ballState.vx += (Math.random() - 0.5) * 1.2;
-    ballState.vy += (Math.random() - 0.5) * 0.6;
+    // 自然隨機性 - 增加一點動態性
+    ballState.vx += (Math.random() - 0.5) * 2;
+    ballState.vy += (Math.random() - 0.5) * 1;
   };
 
   // 初始化球
@@ -132,8 +132,8 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
     setBallPos({
       x: boardWidth / 2,
       y: 20,
-      vx: (Math.random() - 0.5) * 2, // 隨機初始x速度
-      vy: 3 // 初始向下速度
+      vx: (Math.random() - 0.5) * 4, // 隨機初始x速度
+      vy: 10 // 🚀🚀 大幅增加初始向下速度
     });
     
     lastTimeRef.current = null;
@@ -148,7 +148,7 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
         lastTimeRef.current = currentTime;
       }
 
-      const deltaTime = Math.min((currentTime - lastTimeRef.current) / 1000, 0.016); // 限制在60fps
+      const deltaTime = Math.min((currentTime - lastTimeRef.current) / 1000, 0.008); // 🚀🚀 提高到120fps，更流暢更快
       lastTimeRef.current = currentTime;
 
       setBallPos(prevPos => {
@@ -157,7 +157,7 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
         const newPos = { ...prevPos };
         
         // 重力
-        newPos.vy += 12 * deltaTime; // 降低重力，讓運動更平穩
+        newPos.vy += 50 * deltaTime; // 🚀🚀 大幅提高重力，超快掉落
         
         // 自然路徑引導 - 影響碰撞結果而不是強制拖拽
         if (targetSlot !== undefined) {
@@ -193,9 +193,9 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
           }
         }
         
-        // 阻力
-        newPos.vx *= 0.998; // 增加阻力
-        newPos.vy *= 0.999;
+        // 阻力 - 幾乎沒有阻力
+        newPos.vx *= 0.9999; // 🚀🚀 幾乎沒有x阻力
+        newPos.vy *= 0.9999; // 🚀🚀 幾乎沒有y阻力
         
         // 更新位置
         newPos.x += newPos.vx;
@@ -281,11 +281,11 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
           
           // 最後階段的溫和引導 - 看起來像自然的軌跡調整
           if (Math.abs(distanceToTarget) > 25) {
-            const gentleForce = Math.sign(distanceToTarget) * 0.8;
+            const gentleForce = Math.sign(distanceToTarget) * 1.5; // 🚀🚀 增加引導力
             newPos.vx += gentleForce;
             
-            // 減少垂直速度，讓球更容易被水平引導
-            newPos.vy *= 0.95;
+            // 🚀🚀 保持更多垂直速度
+            newPos.vy *= 0.99;
           }
         }
         
