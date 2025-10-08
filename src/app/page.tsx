@@ -13,6 +13,7 @@ import ControlPanel from '@/components/ControlPanel';
 import GameBoard from '@/components/GameBoard';
 import BottomSlots from '@/components/BottomSlots';
 import { BallManager } from '@/components/Ball';
+import { SimpleBallManager } from '@/components/SimpleBallManager';
 import GameHistory from '@/components/GameHistory';
 
 // 游戏主组件
@@ -28,6 +29,7 @@ function PlinkoGame() {
   const [highlightedSlot, setHighlightedSlot] = useState<number | undefined>();
   const [lastResult, setLastResult] = useState<GameResult | null>(null);
   const [pendingResults, setPendingResults] = useState<Map<string, (result: GameResult) => void>>(new Map());
+  const [usePhysics, setUsePhysics] = useState(true); // 默認使用物理模式
   
   // 游戏板尺寸 - 调整比例让它更接近参考图片
   const boardWidth = 580;
@@ -149,15 +151,33 @@ function PlinkoGame() {
       <header className="bg-slate-800 shadow-lg p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 
-              className="text-2xl font-bold text-yellow-400 cursor-pointer"
-              onDoubleClick={() => window.open('/admin', '_blank')}
-              title="雙擊進入管理後台"
-            >
-              Plinko 游戏
-            </h1>
-            <div className="text-sm text-slate-400">
-              MVP 演示版本
+            <div className="flex items-center gap-4">
+              <div>
+                <h1 
+                  className="text-2xl font-bold text-yellow-400 cursor-pointer"
+                  onDoubleClick={() => window.open('/admin', '_blank')}
+                  title="雙擊進入管理後台"
+                >
+                  Plinko 游戏
+                </h1>
+                <div className="text-sm text-slate-400">
+                  MVP 演示版本
+                </div>
+              </div>
+              
+              {/* 物理模式切換 */}
+              <button
+                onClick={() => setUsePhysics(!usePhysics)}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-lg ${
+                  usePhysics 
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/25' 
+                    : 'bg-gradient-to-r from-gray-600 to-slate-600 text-gray-300 hover:from-gray-500 hover:to-slate-500 shadow-gray-500/25'
+                } hover:scale-105`}
+                disabled={gameState !== 'idle' || balls.length > 0}
+                title={usePhysics ? '🔮 真實物理模式：球會碰撞釘子並產生光暈效果' : '📐 簡化模式：預定路徑動畫'}
+              >
+                {usePhysics ? '🔮 真實物理' : '📐 簡化模式'}
+              </button>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -234,13 +254,33 @@ function PlinkoGame() {
               <div className="relative">
                 <GameBoard width={boardWidth} height={boardHeight}>
                   {/* 球动画 */}
-                  <BallManager
-                    balls={balls}
-                    boardWidth={boardWidth}
-                    boardHeight={boardHeight}
-                    rows={config.rows}
-                    onBallLanded={handleBallLanded}
-                  />
+                  {usePhysics ? (
+                    <>
+                      <div className="absolute top-2 left-2 text-xs text-green-400 bg-black/50 px-2 py-1 rounded">
+                        🔮 物理模式
+                      </div>
+                      <SimpleBallManager
+                        balls={balls}
+                        boardWidth={boardWidth}
+                        boardHeight={boardHeight}
+                        rows={config.rows}
+                        onBallLanded={handleBallLanded}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <div className="absolute top-2 left-2 text-xs text-gray-400 bg-black/50 px-2 py-1 rounded">
+                        📐 簡化模式
+                      </div>
+                      <BallManager
+                        balls={balls}
+                        boardWidth={boardWidth}
+                        boardHeight={boardHeight}
+                        rows={config.rows}
+                        onBallLanded={handleBallLanded}
+                      />
+                    </>
+                  )}
                 </GameBoard>
                 {/* 底部槽位 */}
                 <div className="mt-1">
