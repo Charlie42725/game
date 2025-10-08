@@ -149,7 +149,13 @@ function PlinkoGame() {
       <header className="bg-slate-800 shadow-lg p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-yellow-400">Plinko 游戏</h1>
+            <h1 
+              className="text-2xl font-bold text-yellow-400 cursor-pointer"
+              onDoubleClick={() => window.open('/admin', '_blank')}
+              title="雙擊進入管理後台"
+            >
+              Plinko 游戏
+            </h1>
             <div className="text-sm text-slate-400">
               MVP 演示版本
             </div>

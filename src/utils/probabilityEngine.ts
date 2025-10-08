@@ -1,5 +1,22 @@
 import { RiskLevel, DROP_PROBABILITIES, PAYOUT_MULTIPLIERS } from '@/types/game';
 
+// 從localStorage獲取自定義倍率的函數
+function getCustomMultipliers(rows: number, risk: RiskLevel): number[] | null {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const saved = localStorage.getItem('customMultipliers');
+    if (saved) {
+      const config = JSON.parse(saved);
+      return config[risk]?.[rows] || null;
+    }
+  } catch (error) {
+    console.error('載入自定義倍率失敗:', error);
+  }
+  
+  return null;
+}
+
 /**
  * 基於機率分佈決定球的最終落點
  * @param rows 行數
@@ -91,6 +108,13 @@ export function generatePathToSlot(rows: number, finalSlot: number): number[] {
  * @returns 倍率數組
  */
 export function getMultipliers(rows: number, risk: RiskLevel): number[] {
+  // 首先嘗試獲取自定義倍率
+  const customMultipliers = getCustomMultipliers(rows, risk);
+  if (customMultipliers && customMultipliers.length > 0) {
+    return customMultipliers;
+  }
+  
+  // 回退到預設倍率
   const multipliers = PAYOUT_MULTIPLIERS[rows];
   
   if (!multipliers) {
