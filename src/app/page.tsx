@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { GameProvider } from '@/contexts/GameContext';
 import { useBalls, useGameConfig, useGameHistory, useGameState } from '@/contexts/GameContext';
 import { generateBallPath } from '@/utils/ballPhysics';
+import { calculateBallDrop } from '@/utils/probabilityEngine';
 import { calculateGameResult } from '@/utils/gameLogic';
 import { useAutoBet } from '@/utils/autoBet';
 import { BallState, GameResult } from '@/types/game';
@@ -44,15 +45,17 @@ function PlinkoGame() {
       
       setGameState('dropping');
       
-      // 生成球的路径
-      const path = generateBallPath(config.rows);
+      // 使用新的機率系統生成球的路径和結果
+      const ballDrop = calculateBallDrop(config.rows, config.risk);
+      
+      console.log('Ball drop calculated:', ballDrop);
       
       // 创建新球
       const ball: BallState = {
         id: `ball-${Date.now()}-${Math.random()}`,
         currentRow: 0,
-        currentCol: path[0], // 使用路径的第一个位置，确保一致性
-        path,
+        currentCol: ballDrop.path[0], // 使用路径的第一个位置
+        path: ballDrop.path,
         isActive: true,
         startTime: Date.now()
       };

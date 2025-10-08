@@ -27,7 +27,7 @@ export default function Ball({
   
   // 动画配置
   const animationDuration = 3000; // 3秒
-  const ballSize = 14;
+  const ballSize = 16; // 增大彈珠尺寸
   
   useEffect(() => {
     console.log('Ball useEffect triggered:', ball.id, 'isActive:', ball.isActive, 'hasStarted:', hasStartedRef.current);
@@ -126,30 +126,63 @@ export default function Ball({
         transform: `translate3d(0, 0, 0)` // 強制硬件加速
       }}
     >
-      {/* 球体 */}
+      {/* 彈珠 */}
       <div
-        className="w-full h-full rounded-full border border-yellow-300/50"
+        className="w-full h-full rounded-full relative overflow-hidden"
         style={{
           transform: `rotate(${rotationAngle}deg)`,
-          background: `radial-gradient(circle at 30% 30%, #fde047, #facc15, #eab308, #ca8a04)`,
+          background: `
+            radial-gradient(circle at 25% 25%, rgba(255,255,255,0.8) 8%, transparent 15%),
+            radial-gradient(circle at 70% 70%, rgba(0,0,0,0.1) 20%, transparent 30%),
+            linear-gradient(135deg, 
+              #ff6b6b 0%, 
+              #ee5a52 25%, 
+              #ff8787 50%, 
+              #ff6b6b 75%, 
+              #e55555 100%
+            )
+          `,
           boxShadow: `
-            inset -3px -3px 6px rgba(0,0,0,0.3),
-            inset 3px 3px 6px rgba(255,255,255,0.9),
-            0 6px 12px rgba(0,0,0,0.4),
-            0 3px 6px rgba(0,0,0,0.2)
-          `
+            inset 2px 2px 8px rgba(255,255,255,0.6),
+            inset -2px -2px 8px rgba(0,0,0,0.3),
+            0 4px 12px rgba(0,0,0,0.4),
+            0 2px 6px rgba(0,0,0,0.2)
+          `,
+          border: '1px solid rgba(255,255,255,0.2)'
         }}
       >
-        {/* 球体主高光 */}
+        {/* 主要高光 - 彈珠特有的反射 */}
         <div
-          className="absolute top-1.5 left-1.5 w-3 h-3 bg-white rounded-full opacity-80"
+          className="absolute top-1 left-1 w-2.5 h-2.5 bg-white rounded-full opacity-90"
           style={{
-            background: 'radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.3) 70%, transparent 100%)'
+            background: 'radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0.7) 50%, transparent 80%)',
+            filter: 'blur(0.5px)'
           }}
         />
-        {/* 次要高光 */}
+        
+        {/* 次要反射光 */}
         <div
-          className="absolute top-2 right-2 w-1.5 h-1.5 bg-white rounded-full opacity-40"
+          className="absolute top-2.5 right-1.5 w-1 h-1 bg-white rounded-full opacity-50"
+          style={{
+            background: 'radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 70%)'
+          }}
+        />
+        
+        {/* 彈珠內部紋理 */}
+        <div
+          className="absolute inset-0.5 rounded-full opacity-30"
+          style={{
+            background: `
+              radial-gradient(circle at 40% 40%, rgba(255,255,255,0.3) 0%, transparent 50%),
+              conic-gradient(from 45deg, 
+                rgba(255,255,255,0.1) 0%, 
+                transparent 25%, 
+                rgba(255,255,255,0.1) 50%, 
+                transparent 75%, 
+                rgba(255,255,255,0.1) 100%
+              )
+            `
+          }}
         />
       </div>
       

@@ -1,5 +1,5 @@
-import { GameResult, GameConfig, PAYOUT_MULTIPLIERS } from '@/types/game';
-import { calculateSlotIndex } from '@/utils/ballPhysics';
+import { GameResult, GameConfig } from '@/types/game';
+import { getMultipliers } from '@/utils/probabilityEngine';
 
 /**
  * 根据球的最终位置计算游戏结果
@@ -10,10 +10,10 @@ export function calculateGameResult(
   config: GameConfig
 ): GameResult {
   const finalPosition = finalPath[finalPath.length - 1];
-  const slotIndex = calculateSlotIndex(finalPosition, config.rows);
+  const slotIndex = Math.floor(finalPosition);
   
-  // 获取对应的倍率
-  const multipliers = PAYOUT_MULTIPLIERS[config.rows] || [];
+  // 使用新的機率系統獲取倍率
+  const multipliers = getMultipliers(config.rows, config.risk);
   const fakePayout = multipliers[slotIndex] || 1;
   
   return {

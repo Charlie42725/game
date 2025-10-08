@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useGameConfig } from '@/contexts/GameContext';
-import { PAYOUT_MULTIPLIERS, getMultiplierColor, getMultiplierGradient } from '@/types/game';
+import { getMultiplierColor, getMultiplierGradient } from '@/types/game';
+import { getMultipliers } from '@/utils/probabilityEngine';
 
 interface BottomSlotsProps {
   width: number;
@@ -16,7 +17,7 @@ export default function BottomSlots({
   highlightedSlot 
 }: BottomSlotsProps) {
   const { config } = useGameConfig();
-  const multipliers = PAYOUT_MULTIPLIERS[config.rows] || [];
+  const multipliers = getMultipliers(config.rows, config.risk);
   const slotCount = config.rows + 1;
   const slotWidth = width / slotCount;
 
