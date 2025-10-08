@@ -76,7 +76,7 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
     return distance <= (12 + 3); // 球半徑12 + 釘子實際半徑3 (與遊戲板一致)
   };
 
-  // 處理碰撞
+  // 處理碰撞 - 帶有機率傾向的自然反彈
   const handleCollision = (ballState: SimpleBallState, peg: Peg) => {
     const dx = ballState.x - peg.x;
     const dy = ballState.y - peg.y;
@@ -89,24 +89,38 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
     const ny = dy / distance;
     
     // 分離球和釘子
-    const overlap = (12 + 3) - distance; // 使用實際釘子半徑3
-    ballState.x += nx * overlap * 0.8; // 增加分離力度
+    const overlap = (12 + 3) - distance;
+    ballState.x += nx * overlap * 0.8;
     ballState.y += ny * overlap * 0.8;
     
-    // 計算反彈速度 - 降低彈性以減少劇烈彈跳
+    // 計算基本反彈速度
     const dotProduct = ballState.vx * nx + ballState.vy * ny;
-    ballState.vx -= 2 * dotProduct * nx * 0.6; // 降低彈性係數到0.6
-    ballState.vy -= 2 * dotProduct * ny * 0.6;
+    ballState.vx -= 2 * dotProduct * nx * 0.7; // 稍微提高彈性
+    ballState.vy -= 2 * dotProduct * ny * 0.7;
     
-    // 限制水平速度，防止球彈得太遠
-    const maxHorizontalSpeed = 4;
+    // 🎯 機率影響的微妙偏向 - 讓碰撞有輕微的方向性偏好
+    if (targetSlot !== undefined) {
+      const slotWidth = boardWidth / (rows + 1);
+      const targetX = slotWidth * (targetSlot + 0.5);
+      const distanceToTarget = targetX - ballState.x;
+      const progressToBottom = Math.min(1, ballState.y / (boardHeight * 0.8));
+      
+      // 只在中後期有輕微影響，且影響很小
+      if (progressToBottom > 0.4 && Math.abs(distanceToTarget) > 30) {
+        const bias = Math.sign(distanceToTarget) * 0.3 * progressToBottom;
+        ballState.vx += bias;
+      }
+    }
+    
+    // 限制速度
+    const maxHorizontalSpeed = 5;
     if (Math.abs(ballState.vx) > maxHorizontalSpeed) {
       ballState.vx = ballState.vx > 0 ? maxHorizontalSpeed : -maxHorizontalSpeed;
     }
     
-    // 添加輕微隨機性，但不要太大
-    ballState.vx += (Math.random() - 0.5) * 1;
-    ballState.vy += (Math.random() - 0.5) * 0.5;
+    // 自然隨機性
+    ballState.vx += (Math.random() - 0.5) * 1.2;
+    ballState.vy += (Math.random() - 0.5) * 0.6;
   };
 
   // 初始化球
@@ -145,40 +159,37 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
         // 重力
         newPos.vy += 12 * deltaTime; // 降低重力，讓運動更平穩
         
-        // 強力機率引導 - 確保完全遵循後台數據
+        // 自然路徑引導 - 影響碰撞結果而不是強制拖拽
         if (targetSlot !== undefined) {
           const slotWidth = boardWidth / (rows + 1);
           const targetX = slotWidth * (targetSlot + 0.5);
           const distanceToTarget = targetX - newPos.x;
           
-          // 計算引導力強度 - 三段式增強
-          const progressToBottom = Math.min(1, newPos.y / (boardHeight * 0.9));
-          let guidanceMultiplier = 0;
+          // 漸進式微調 - 只在接近釘子時輕微影響
+          const progressToBottom = Math.min(1, newPos.y / (boardHeight * 0.85));
           
-          if (progressToBottom > 0.7) {
-            // 底部30%：極強引導，確保到達目標
-            guidanceMultiplier = 8 + (progressToBottom - 0.7) * 20; // 8-14倍強度
-          } else if (progressToBottom > 0.4) {
-            // 中部30%：中等引導
-            guidanceMultiplier = 2 + (progressToBottom - 0.4) * 20; // 2-8倍強度
-          } else {
-            // 頂部40%：輕微引導，保持物理真實感
-            guidanceMultiplier = progressToBottom * 5; // 0-2倍強度
+          // 檢查是否即將碰撞釘子
+          let nearPeg = false;
+          for (const peg of pegs) {
+            const dx = newPos.x - peg.x;
+            const dy = newPos.y - peg.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < 25) { // 接近釘子範圍
+              nearPeg = true;
+              break;
+            }
           }
           
-          // 應用引導力 - 距離越遠力度越強
-          const distanceRatio = Math.min(1, Math.abs(distanceToTarget) / (slotWidth * 0.5));
-          const guidanceForce = Math.sign(distanceToTarget) * guidanceMultiplier * distanceRatio * 0.5;
-          newPos.vx += guidanceForce;
-          
-          // 底部區域額外限制速度發散
-          if (progressToBottom > 0.8) {
-            newPos.vx *= 0.7; // 減少水平速度以提高精確性
-          }
-          
-          // 調試信息
-          if (Math.random() < 0.02) { // 2%機率打印調試信息
-            console.log(`[Physics] 🎯 Target: ${targetSlot}, X: ${newPos.x.toFixed(1)}→${targetX.toFixed(1)}, Dist: ${distanceToTarget.toFixed(1)}, Progress: ${(progressToBottom*100).toFixed(1)}%, Force: ${guidanceForce.toFixed(2)}`);
+          // 只在特定情況下輕微調整
+          if (nearPeg && Math.abs(distanceToTarget) > 20 && progressToBottom > 0.3) {
+            // 微小的方向性偏好 - 不是強制力，而是輕微的傾向
+            const subtleInfluence = Math.sign(distanceToTarget) * 0.15 * progressToBottom;
+            newPos.vx += subtleInfluence;
+            
+            // 調試信息
+            if (Math.random() < 0.01) {
+              console.log(`🎱 [Subtle] Near peg, target: ${targetSlot}, influence: ${subtleInfluence.toFixed(3)}`);
+            }
           }
         }
         
@@ -262,6 +273,22 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
           }
         }
         
+        // 最終階段的自然引導
+        if (targetSlot !== undefined && newPos.y > boardHeight * 0.85) {
+          const slotWidth = boardWidth / (rows + 1);
+          const targetX = slotWidth * (targetSlot + 0.5);
+          const distanceToTarget = targetX - newPos.x;
+          
+          // 最後階段的溫和引導 - 看起來像自然的軌跡調整
+          if (Math.abs(distanceToTarget) > 25) {
+            const gentleForce = Math.sign(distanceToTarget) * 0.8;
+            newPos.vx += gentleForce;
+            
+            // 減少垂直速度，讓球更容易被水平引導
+            newPos.vy *= 0.95;
+          }
+        }
+        
         // 最終安全檢查 - 強制保持在合理範圍內
         const safeMargin = 30;
         if (newPos.x < safeMargin) {
@@ -275,19 +302,37 @@ const SimpleBall: React.FC<SimpleBallProps> = ({
         
         // 檢查是否到達底部
         if (newPos.y >= boardHeight - 12) {
-          // 🎯 關鍵修復：完全遵循後台機率數據
+          // � 智能結果判定：結合物理位置和機率目標
           let finalSlot: number;
           
+          // 計算物理位置對應的槽位
+          newPos.x = Math.max(safeMargin, Math.min(boardWidth - safeMargin, newPos.x));
+          const physicsSlot = Math.floor((newPos.x / boardWidth) * (rows + 1));
+          const clampedPhysicsSlot = Math.max(0, Math.min(rows, physicsSlot));
+          
           if (targetSlot !== undefined) {
-            // 使用後台計算的目標槽位（完全遵循機率數據）
-            finalSlot = targetSlot;
-            console.log(`🎯 [Physics End] Using backend target slot: ${finalSlot}`);
+            // 如果物理位置接近目標，使用目標
+            const slotDifference = Math.abs(clampedPhysicsSlot - targetSlot);
+            if (slotDifference <= 1) {
+              // 物理位置合理，使用目標槽位
+              finalSlot = targetSlot;
+              console.log(`🎯 [Natural] Physics slot ${clampedPhysicsSlot} close to target ${targetSlot}, using target`);
+            } else {
+              // 物理位置偏差較大，需要微調
+              const progressToBottom = Math.min(1, newPos.y / boardHeight);
+              if (progressToBottom > 0.9) {
+                // 最底部：優先使用目標
+                finalSlot = targetSlot;
+                console.log(`🎯 [Override] Bottom area, forcing target ${targetSlot} (was physics ${clampedPhysicsSlot})`);
+              } else {
+                // 其他情況：使用物理位置但記錄偏差
+                finalSlot = clampedPhysicsSlot;
+                console.log(`⚠️ [Physics] Using physics slot ${clampedPhysicsSlot} (target was ${targetSlot})`);
+              }
+            }
           } else {
-            // 後備方案：基於物理位置計算
-            newPos.x = Math.max(safeMargin, Math.min(boardWidth - safeMargin, newPos.x));
-            finalSlot = Math.floor((newPos.x / boardWidth) * (rows + 1));
-            finalSlot = Math.max(0, Math.min(rows, finalSlot));
-            console.log(`⚠️ [Physics End] No target, using physics position: ${finalSlot}`);
+            finalSlot = clampedPhysicsSlot;
+            console.log(`📍 [Physics] No target, using physics slot: ${finalSlot}`);
           }
           
           setTimeout(() => {
