@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GameProvider } from '@/contexts/GameContext';
 import { useBalls, useGameConfig, useGameHistory, useGameState } from '@/contexts/GameContext';
 import { generateBallPath } from '@/utils/ballPhysics';
@@ -41,16 +41,18 @@ function PlinkoGame() {
   // 执行单次投注
   const executeSingleBet = useCallback(async (): Promise<GameResult> => {
     return new Promise((resolve) => {
-      if (!canBet() && !isAutoBetting) {
+      // 🔧 修復邏輯：自動投注時允許執行，手動投注時需要檢查canBet
+      if (!isAutoBetting && !canBet()) {
         throw new Error('Cannot bet at this time');
       }
       
+      console.log('🎯 [ExecuteBet] Starting, isAutoBetting:', isAutoBetting, 'canBet:', canBet());
       setGameState('dropping');
       
       // 使用新的機率系統生成球的路径和結果
       const ballDrop = calculateBallDrop(config.rows, config.risk);
       
-      console.log('Ball drop calculated:', ballDrop);
+      console.log('📊 [ExecuteBet] Ball drop calculated:', ballDrop);
       
       // 创建新球
       const ball: BallState = {
@@ -62,11 +64,15 @@ function PlinkoGame() {
         startTime: Date.now()
       };
       
+      console.log('⚽ [ExecuteBet] Created ball:', ball);
+      
       // 球創建成功
       addBall(ball);
+      console.log('✅ [ExecuteBet] Ball added to state');
       
       // 存储resolve回调
       setPendingResults(prev => new Map(prev).set(ball.id, resolve));
+      console.log('📝 [ExecuteBet] Promise resolver stored for ball:', ball.id);
     });
   }, [config, canBet, isAutoBetting, setGameState, addBall]);
   
@@ -84,12 +90,18 @@ function PlinkoGame() {
   
   // 处理自动投注
   const handleAutoBetStart = useCallback(async () => {
-    if (!config.autoBetConfig) return;
+    if (!config.autoBetConfig) {
+      console.error('🚫 No auto bet config found');
+      return;
+    }
+    
+    console.log('🎬 [Main] Starting auto bet with config:', config.autoBetConfig);
     
     try {
       await startAutoBet(config.autoBetConfig, executeSingleBet);
+      console.log('✅ [Main] Auto bet started successfully');
     } catch (error) {
-      console.error('Auto bet failed:', error);
+      console.error('💥 [Main] Auto bet failed:', error);
       stopAutoBet();
     }
   }, [config.autoBetConfig, startAutoBet, stopAutoBet, executeSingleBet]);
@@ -131,19 +143,34 @@ function PlinkoGame() {
     }
   }, [balls, config, addResult, removeBall, pendingResults, isAutoBetting, setGameState]);
   
-  // 监听全局事件
+  // 🤖 自動投注監聽器
+  useEffect(() => {
+    console.log('🔍 Auto bet status check:', {
+      configActive: config.autoBetConfig?.isActive
+    });
+    
+    if (config.autoBetConfig?.isActive) {
+      console.log('🤖 Starting auto bet...');
+      startAutoBet(config.autoBetConfig, executeSingleBet).catch(error => {
+        console.error('💥 [Main] Auto bet failed:', error);
+      });
+    } else {
+      console.log('🛑 Stopping auto bet...');
+      stopAutoBet();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.autoBetConfig?.isActive]);
+  
+  // 监听全局事件 (只保留手動投注事件)
   useEffect(() => {
     const handleBetEvent = () => handleBetClick();
-    const handleAutoBetEvent = () => handleAutoBetStart();
     
     window.addEventListener('bet-clicked', handleBetEvent);
-    window.addEventListener('auto-bet-start', handleAutoBetEvent);
     
     return () => {
       window.removeEventListener('bet-clicked', handleBetEvent);
-      window.removeEventListener('auto-bet-start', handleAutoBetEvent);
     };
-  }, [handleBetClick, handleAutoBetStart]);
+  }, [handleBetClick]);
   
   return (
     <div className="min-h-screen bg-slate-900 text-white">
@@ -293,9 +320,15 @@ function PlinkoGame() {
               </div>
               {/* 游戏信息 */}
               <div className="mt-4 text-center">
-                {isAutoBetting && (
+                {isAutoBetting && config.autoBetConfig && (
                   <div className="bg-yellow-900/50 text-yellow-300 px-4 py-2 rounded-lg">
-                    自动投注进行中...
+                    <div className="font-medium">🤖 自動投注進行中</div>
+                    <div className="text-sm mt-1">
+                      間隔: {((config.autoBetConfig.interval || 1800) / 1000).toFixed(1)}秒 | 
+                      輪數: {config.autoBetConfig.rounds} | 
+                      {config.autoBetConfig.stopOnWin && ` 盈利停止: ${config.autoBetConfig.stopOnWin}`}
+                      {config.autoBetConfig.stopOnLoss && ` 虧損停止: ${config.autoBetConfig.stopOnLoss}`}
+                    </div>
                   </div>
                 )}
                 {gameState === 'dropping' && !isAutoBetting && (

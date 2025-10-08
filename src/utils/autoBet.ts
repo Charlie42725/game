@@ -12,11 +12,13 @@ export class AutoBetManager {
   private onCompleteCallback?: (reason: string) => void;
   private onUpdateCallback?: (round: number, total: number) => void;
   private timeoutId?: NodeJS.Timeout;
+  private betInterval: number = 800; // 🎲 預設0.8秒間隔，更快速
 
   constructor(config: AutoBetConfig) {
     this.totalRounds = config.rounds;
     this.stopOnWin = config.stopOnWin;
     this.stopOnLoss = config.stopOnLoss;
+    this.betInterval = config.interval || 800; // 🎲 使用配置的間隔或預設0.8秒
   }
 
   /**
@@ -28,10 +30,12 @@ export class AutoBetManager {
     onUpdate?: (round: number, total: number) => void
   ) {
     if (this.isRunning) {
-      console.warn('Auto bet is already running');
+      console.warn('⚠️ [AutoBet] Auto bet is already running');
       return;
     }
 
+    console.log(`🚀 [AutoBet] Starting auto bet with ${this.totalRounds} rounds, interval: ${this.betInterval}ms`);
+    
     this.onBetCallback = onBet;
     this.onCompleteCallback = onComplete;
     this.onUpdateCallback = onUpdate;
@@ -39,7 +43,7 @@ export class AutoBetManager {
     this.currentRound = 0;
     this.results = [];
 
-    console.log(`Starting auto bet: ${this.totalRounds} rounds`);
+    console.log(`📋 [AutoBet] Initial state: currentRound=${this.currentRound}, totalRounds=${this.totalRounds}, isRunning=${this.isRunning}`);
     this.scheduleNextBet();
   }
 
@@ -63,10 +67,16 @@ export class AutoBetManager {
    * 安排下一次投注
    */
   private scheduleNextBet() {
-    if (!this.isRunning) return;
+    console.log(`📅 [Schedule] isRunning: ${this.isRunning}, currentRound: ${this.currentRound}, totalRounds: ${this.totalRounds}`);
+    
+    if (!this.isRunning) {
+      console.log('❌ [Schedule] Not running, skipping');
+      return;
+    }
 
     // 检查是否达到轮数限制
     if (this.currentRound >= this.totalRounds) {
+      console.log(`🏁 [Schedule] Reached round limit: ${this.currentRound}/${this.totalRounds}`);
       this.stop(`完成所有 ${this.totalRounds} 轮投注`);
       return;
     }
@@ -80,38 +90,54 @@ export class AutoBetManager {
       );
       
       if (stopCondition.shouldStop) {
+        console.log(`🛑 [Schedule] Stop condition met:`, stopCondition);
         this.stop(stopCondition.reason || '达到停止条件');
         return;
       }
     }
 
-    // 延迟下一次投注 (避免过于频繁)
+    // 🎲 延迟下一次投注，間隔可配置
+    console.log(`⏰ [Schedule] Next bet scheduled in ${this.betInterval}ms`);
     this.timeoutId = setTimeout(() => {
+      console.log(`🎯 [Schedule] Timeout fired, calling executeBet`);
       this.executeBet();
-    }, 1000); // 1秒间隔
+    }, this.betInterval);
   }
 
   /**
    * 执行单次投注
    */
   private async executeBet() {
-    if (!this.isRunning || !this.onBetCallback) return;
+    if (!this.isRunning || !this.onBetCallback) {
+      console.error('🚫 [Auto Bet] Cannot execute: running =', this.isRunning, 'callback =', !!this.onBetCallback);
+      return;
+    }
 
     try {
       this.currentRound++;
       this.onUpdateCallback?.(this.currentRound, this.totalRounds);
 
-      console.log(`Auto bet round ${this.currentRound}/${this.totalRounds}`);
+      console.log(`🚀 [Auto Bet] Starting round ${this.currentRound}/${this.totalRounds} - Next in ${this.betInterval}ms`);
       
       // 执行投注
+      console.log('🎯 [Auto Bet] Calling bet callback...');
       const result = await this.onBetCallback();
+      console.log('✅ [Auto Bet] Bet callback completed, result:', result);
+      
       this.results.push(result);
+      
+      console.log(`💰 [Auto Bet] Round ${this.currentRound} result:`, {
+        slot: result.slotIndex,
+        fakePayout: result.fakePayout,
+        bet: result.bet,
+        profit: result.fakePayout - result.bet
+      });
 
       // 安排下一次投注
       this.scheduleNextBet();
       
     } catch (error) {
-      console.error('Auto bet failed:', error);
+      console.error('💥 [Auto Bet] Round failed:', error);
       this.stop('投注执行失败');
     }
   }
@@ -161,49 +187,67 @@ export function useAutoBet() {
     autoBetConfig: AutoBetConfig,
     onSingleBet: () => Promise<GameResult>
   ) => {
+    console.log('🎬 [startAutoBet] Called with config:', autoBetConfig);
+    
+    // 如果已經在運行相同配置，不重複啟動
+    if (managerRef.current && managerRef.current.getStatus().isRunning) {
+      console.log('⏸️ [startAutoBet] Manager already running, skipping');
+      return;
+    }
+    
     // 停止现有的自动投注
     if (managerRef.current) {
+      console.log('🛑 [startAutoBet] Stopping existing manager');
       managerRef.current.stop();
     }
 
     // 创建新的管理器
+    console.log('🏗️ [startAutoBet] Creating new AutoBetManager');
     managerRef.current = new AutoBetManager(autoBetConfig);
 
-    // 更新配置状态
-    setAutoBet(autoBetConfig);
+    // 🔧 不重複設置配置，避免循環依賴
     setGameState('dropping');
 
     // 开始自动投注
+    console.log('▶️ [startAutoBet] Starting manager');
     managerRef.current.start(
       onSingleBet,
       (reason) => {
         // 完成回调
-        console.log('Auto bet completed:', reason);
+        console.log('🏁 [startAutoBet] Auto bet completed:', reason);
         setAutoBet(null);
         setGameState('idle');
       },
       (current, total) => {
         // 进度更新回调
-        console.log(`Auto bet progress: ${current}/${total}`);
+        console.log(`📊 [startAutoBet] Auto bet progress: ${current}/${total}`);
       }
     );
 
   }, [setAutoBet, setGameState]);
 
   const stopAutoBet = useCallback(() => {
+    console.log('🛑 [stopAutoBet] Stopping auto bet');
     if (managerRef.current) {
       managerRef.current.stop('用户手动停止');
       managerRef.current = null;
     }
-    setAutoBet(null);
+    // 🔧 不在這裡調用 setAutoBet，避免循環依賴
     setGameState('idle');
-  }, [setAutoBet, setGameState]);
+  }, [setGameState]);
 
   const getAutoBetStatus = useCallback(() => {
     return managerRef.current?.getStatus() || null;
   }, []);
 
   const isAutoBetting = config.autoBetConfig?.isActive || false;
+  
+  console.log('🔍 [useAutoBet] Current state:', {
+    configActive: config.autoBetConfig?.isActive,
+    isAutoBetting,
+    hasManager: !!managerRef.current,
+    managerRunning: managerRef.current?.getStatus()?.isRunning
+  });
 
   return {
     startAutoBet,

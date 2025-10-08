@@ -166,6 +166,11 @@ export function GameProvider({ children }: GameProviderProps) {
 
   // 辅助函数
   const canBet = (): boolean => {
+    // 🔧 自動投注時放寬限制，只要有投注金額就可以
+    if (state.config.autoBetConfig?.isActive) {
+      return state.config.bet > 0;
+    }
+    // 手動投注需要嚴格檢查
     return state.gameState === 'idle' && state.balls.length === 0 && state.config.bet > 0;
   };
 

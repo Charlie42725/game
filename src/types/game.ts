@@ -15,6 +15,7 @@ export interface AutoBetConfig {
   isActive: boolean;    // 是否激活
   stopOnWin?: number;   // 赢到多少停止
   stopOnLoss?: number;  // 输到多少停止
+  interval?: number;    // 🎲 投注間隔時間（毫秒），預設1800ms
 }
 
 // 球的状态

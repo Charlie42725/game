@@ -11,7 +11,8 @@ export default function ControlPanel() {
   const [autoBetForm, setAutoBetForm] = useState({
     rounds: 10,
     stopOnWin: 0,
-    stopOnLoss: 0
+    stopOnLoss: 0,
+    interval: 0.8 // 🎲 改為0.8秒間隔，更快速
   });
 
   const handleBetChange = (value: string) => {
@@ -47,6 +48,7 @@ export default function ControlPanel() {
   const handleAutoBetToggle = () => {
     if (config.autoBetConfig?.isActive) {
       // 停止自动投注
+      console.log('🛑 [ControlPanel] Stopping auto bet');
       setAutoBet(null);
     } else {
       // 开始自动投注
@@ -54,15 +56,13 @@ export default function ControlPanel() {
         rounds: autoBetForm.rounds,
         isActive: true,
         stopOnWin: autoBetForm.stopOnWin > 0 ? autoBetForm.stopOnWin : undefined,
-        stopOnLoss: autoBetForm.stopOnLoss > 0 ? autoBetForm.stopOnLoss : undefined
+        stopOnLoss: autoBetForm.stopOnLoss > 0 ? autoBetForm.stopOnLoss : undefined,
+        interval: Math.max(500, autoBetForm.interval * 1000) // 🎲 轉換為毫秒，最少0.5秒
       };
-      setAutoBet(autoBetConfig);
       
-      // 触发自动投注开始事件
-      const event = new CustomEvent('auto-bet-start', { 
-        detail: { config: autoBetConfig } 
-      });
-      window.dispatchEvent(event);
+      console.log('🎮 [ControlPanel] Setting auto bet config:', autoBetConfig);
+      setAutoBet(autoBetConfig);
+      // 🎯 配置會通過 useEffect 自動觸發自動投注
     }
   };
 
@@ -239,6 +239,28 @@ export default function ControlPanel() {
               step="0.00000001"
               placeholder="0 (不设限制)"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              🎲 投注间隔 (秒)
+            </label>
+            <input
+              type="number"
+              value={autoBetForm.interval}
+              onChange={(e) => setAutoBetForm(prev => ({ 
+                ...prev, 
+                interval: Math.max(1, parseFloat(e.target.value) || 1.8)
+              }))}
+              className="w-full bg-slate-700 text-white px-3 py-2 rounded-lg outline-none"
+              min="0.5"
+              max="5"
+              step="0.1"
+              placeholder="0.8"
+            />
+            <div className="text-xs text-gray-400 mt-1">
+              建議0.8-2秒，快速投注
+            </div>
           </div>
         </div>
       )}
