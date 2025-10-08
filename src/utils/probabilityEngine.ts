@@ -17,18 +17,41 @@ function getCustomMultipliers(rows: number, risk: RiskLevel): number[] | null {
   return null;
 }
 
+// 從localStorage獲取自定義機率的函數
+function getCustomProbabilities(rows: number): number[] | null {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const saved = localStorage.getItem('customProbabilities');
+    if (saved) {
+      const config = JSON.parse(saved);
+      return config[rows] || null;
+    }
+  } catch (error) {
+    console.error('載入自定義機率失敗:', error);
+  }
+  
+  return null;
+}
+
 /**
  * 基於機率分佈決定球的最終落點
  * @param rows 行數
  * @returns 最終的槽位索引 (0-based)
  */
 export function calculateFinalSlot(rows: number): number {
-  const probabilities = DROP_PROBABILITIES[rows];
+  // 首先嘗試獲取自定義機率
+  let probabilities = getCustomProbabilities(rows);
+  
+  // 如果沒有自定義機率，使用預設機率
+  if (!probabilities) {
+    probabilities = DROP_PROBABILITIES[rows];
+  }
   
   console.log(`[DEBUG] Calculating slot for ${rows} rows, probabilities:`, probabilities);
   
   if (!probabilities) {
-    // 如果沒有預定義的機率，使用隨機分佈
+    // 如果沒有任何機率數據，使用隨機分佈
     const slots = rows + 1;
     return Math.floor(Math.random() * slots);
   }
